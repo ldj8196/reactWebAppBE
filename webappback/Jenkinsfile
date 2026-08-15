@@ -62,15 +62,16 @@ pipeline {
                     // 1. 새 컨테이너 실행
                     sh "docker run -d --name ${targetContainer} -p ${targetPort}:8080 ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
 
-                    // 2. 새 컨테이너 안정화 대기 (헬스체크 대용)
+                    // 2. 새 컨테이너 안정화 대기
                     sleep 15
 
-                    // 3. Nginx가 바라보는 포트를 새 컨테이너의 포트로 변경 (service-url.inc 업데이트)
+                    // 3. Nginx가 바라보는 포트를 새 컨테이너의 포트로 변경 (권한을 풀었으므로 바로 작성 가능)
                     echo ">>> [Deploy] Nginx 트래픽 전환 중 (Port: ${targetPort})"
-                    sh "sudo sh -c \"echo 'set \\\$service_url http://127.0.0.1:${targetPort};' > /etc/nginx/conf.d/service-url.inc\""
+                    sh "echo 'set \$service_url http://127.0.0.1:${targetPort};' > /etc/nginx/conf.d/service-url.inc"
 
-                    // 4. Nginx 부드러운 재시작 (무중단 트래픽 전환)
-                    sh "sudo nginx -s reload"
+                    // 4. 우분투 호스트의 Nginx 부드러운 재시작 (도커를 통해 호스트의 nginx에 reload 명령 전달)
+                    // 현재 젠킨스에 docker.sock이 연결되어 있으므로 아래 명령어로 호스트의 Nginx를 리로드할 수 있습니다.
+                    sh "docker exec $(docker ps -q -f name=nginx) nginx -s reload || sudo nginx -s reload || true"
 
                     // 5. 구버전 컨테이너 종료 및 삭제
                     sh "docker stop ${oldContainer} || true"
