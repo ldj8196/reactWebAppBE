@@ -33,7 +33,7 @@ pipeline {
             }
         }
 
-        // 4. 블루-그린 무중단 배포 실행 (로컬 이미지 사용)
+        // 4. 블루-그린 무중단 배포 및 Nginx 트래픽 전환 실행
         stage('Blue-Green Deploy') {
             steps {
                 script {
@@ -55,17 +55,24 @@ pipeline {
 
                     echo ">>> [Deploy] 현재 구동 중인 컨테이너 교체 시작: ${oldContainer} -> ${targetContainer} (Port: ${targetPort})"
 
-                    // 1. 로컬에 빌드된 새 이미지로 타겟 컨테이너 실행
+                    // 1. 새 컨테이너 실행
                     sh "docker run -d --name ${targetContainer} -p ${targetPort}:8080 ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
 
-                    // 2. 새 컨테이너 안정화 대기
-                    sleep 10
+                    // 2. 새 컨테이너 안정화 대기 (헬스체크 대용)
+                    sleep 15
 
-                    // 3. 구버전 컨테이너 종료 및 삭제
+                    // 3. Nginx가 바라보는 포트를 새 컨테이너의 포트로 변경 (service-url.inc 업데이트)
+                    echo ">>> [Deploy] Nginx 트래픽 전환 중 (Port: ${targetPort})"
+                    sh "sudo sh -c \"echo 'set \\\$service_url http://127.0.0.1:${targetPort};' > /etc/nginx/conf.d/service-url.inc\""
+
+                    // 4. Nginx 부드러운 재시작 (무중단 트래픽 전환)
+                    sh "sudo nginx -s reload"
+
+                    // 5. 구버전 컨테이너 종료 및 삭제
                     sh "docker stop ${oldContainer} || true"
                     sh "docker rm ${oldContainer} || true"
 
-                    echo ">>> [Deploy] 무중단 배포 완료! (${targetContainer} 구동 중)"
+                    echo ">>> [Deploy] 블루-그린 무중단 배포 최종 완료! (${targetContainer} 구동 중)"
                 }
             }
         }
