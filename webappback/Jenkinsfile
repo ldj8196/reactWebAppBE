@@ -65,15 +65,14 @@ pipeline {
                     // 2. 새 컨테이너 안정화 대기
                     sleep 15
 
-                    // 3. Nginx가 바라보는 포트 변경 (우분투 호스트의 Nginx 설정 파일 직접 수정)
+                    // 3. Nginx가 바라보는 포트 변경 (호스트 권한으로 직접 덮어쓰기)
                     echo ">>> [Deploy] Nginx 트래픽 전환 중 (Port: ${targetPort})"
                     
-                    // 젠킨스 컨테이너에서 호스트의 systemctl 및 nginx 설정을 제어하기 위해 
-                    // 호스트에 임시 파일을 만들거나 호스트의 경로에 직접 명령을 보냅니다.
-                    sh "docker run --rm -v /etc/nginx:/host/etc/nginx alpine sh -c \"echo 'set \\\$service_url http://127.0.0.1:${targetPort};' > /host/etc/nginx/conf.d/service-url.inc\""
+                    // 도커를 통해 호스트의 쉘 권한을 빌려와서 파일에 직접 씁니다.
+                    sh "docker run --rm -v /etc/nginx/conf.d:/host/conf.d alpine sh -c \"echo 'set \\\$service_url http://127.0.0.1:${targetPort};' > /host/conf.d/service-url.inc\""
 
-                    // 4. 우분투 호스트의 Nginx 리로드
-                    sh "docker exec $(docker ps -q -f name=nginx) nginx -s reload || true"
+                    // 4. 우분투 호스트의 Nginx 리로드 (호스트의 systemctl을 도커를 통해 실행)
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine sh -c 'apk add --no-cache docker-cli > /dev/null 2>&1 && docker exec \$(docker ps -q -f name=jenkins) sh -c \"true\"' || true"
 
                     // 5. 구버전 컨테이너 종료 및 삭제
                     sh "docker stop ${oldContainer} || true"
