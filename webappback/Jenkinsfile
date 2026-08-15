@@ -59,7 +59,8 @@ pipeline {
 
                     echo ">>> [Deploy] 현재 구동 중인 컨테이너 교체 시작: ${oldContainer} -> ${targetContainer} (Port: ${targetPort})"
 
-                    // 1. 새 컨테이너 실행
+                    // 1. 기존에 남아있는 동일 이름의 컨테이너가 있다면 강제 삭제 후 실행
+                    sh "docker rm -f ${targetContainer} || true"
                     sh "docker run -d --name ${targetContainer} -p ${targetPort}:8080 ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
 
                     // 2. 새 컨테이너 안정화 대기
