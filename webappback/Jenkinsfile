@@ -20,7 +20,7 @@ pipeline {
         stage('Build Gradle') {
             steps {
                 dir('webappback') {
-                    sh './gradlew clean bootJar'
+                    sh 'bash ./gradlew clean bootJar'
                 }
             }
         }
