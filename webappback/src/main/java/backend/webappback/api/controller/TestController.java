@@ -7,11 +7,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class TestController {
-    
+
     @PostMapping("/test")
     public String testApi() {
         try {
-            String val = "변경될 내용!!";
+            String val = "자동감지가능?";
             
             return val;
         } catch (Exception e) {
