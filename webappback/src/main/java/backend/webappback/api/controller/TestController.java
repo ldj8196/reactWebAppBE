@@ -11,7 +11,7 @@ public class TestController {
     @PostMapping("/test")
     public String testApi() {
         try {
-            String val = "자동감지가능?";
+            String val = "감지성공!!";
             
             return val;
         } catch (Exception e) {
