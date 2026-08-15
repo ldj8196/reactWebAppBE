@@ -71,7 +71,7 @@ pipeline {
 
                     // 4. 우분투 호스트의 Nginx 부드러운 재시작 (도커를 통해 호스트의 nginx에 reload 명령 전달)
                     // 현재 젠킨스에 docker.sock이 연결되어 있으므로 아래 명령어로 호스트의 Nginx를 리로드할 수 있습니다.
-                    sh "docker exec $(docker ps -q -f name=nginx) nginx -s reload || sudo nginx -s reload || true"
+                    sh "docker exec \$(docker ps -q -f name=nginx) nginx -s reload || true"
 
                     // 5. 구버전 컨테이너 종료 및 삭제
                     sh "docker stop ${oldContainer} || true"
