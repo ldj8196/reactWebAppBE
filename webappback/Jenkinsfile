@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    environment {
+        // 로컬에서만 사용할 이미지 이름 (도커 허브 ID 불필요!)
+        DOCKER_IMAGE_NAME = 'my-backend-app'
+        CONTAINER_BLUE = 'backend-blue'
+        CONTAINER_GREEN = 'backend-green'
+    }
+
+    stages {
+        // 1. 깃허브 소스코드 가져오기
+        stage('Clone Git') {
+            steps {
+                git branch: 'main', url: 'https://github.com/ldj8196/reactWebAppBE.git'
+            }
+        }
+
+        // 2. Gradle 빌드 (jar 파일 생성)
+        stage('Build Gradle') {
+            steps {
+                sh './gradlew clean bootJar'
+            }
+        }
+
+        // 3. 우분투 로컬에 Docker 이미지 빌드
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // 빌드 번호를 태그로 사용하여 로컬에 이미지 생성
+                    sh "docker build -f backend.dockerfile -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ."
+                }
+            }
+        }
+
+        // 4. 블루-그린 무중단 배포 실행 (로컬 이미지 사용)
+        stage('Blue-Green Deploy') {
+            steps {
+                script {
+                    def activeEnv = sh(script: "docker ps -a --format '{{.Names}}' | grep -E '${CONTAINER_BLUE}|${CONTAINER_GREEN}' || echo 'none'", returnStdout: true).trim()
+                    
+                    def targetContainer = ""
+                    def oldContainer = ""
+                    def targetPort = ""
+
+                    if (activeEnv.contains(CONTAINER_GREEN)) {
+                        targetContainer = CONTAINER_BLUE
+                        oldContainer = CONTAINER_GREEN
+                        targetPort = "8081"
+                    } else {
+                        targetContainer = CONTAINER_GREEN
+                        oldContainer = CONTAINER_BLUE
+                        targetPort = "8082"
+                    }
+
+                    echo ">>> [Deploy] 현재 구동 중인 컨테이너 교체 시작: ${oldContainer} -> ${targetContainer} (Port: ${targetPort})"
+
+                    // 1. 로컬에 빌드된 새 이미지로 타겟 컨테이너 실행
+                    sh "docker run -d --name ${targetContainer} -p ${targetPort}:8080 ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}"
+
+                    // 2. 새 컨테이너 안정화 대기
+                    sleep 10
+
+                    // 3. 구버전 컨테이너 종료 및 삭제
+                    sh "docker stop ${oldContainer} || true"
+                    sh "docker rm ${oldContainer} || true"
+
+                    echo ">>> [Deploy] 무중단 배포 완료! (${targetContainer} 구동 중)"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '🎉 파이프라인 빌드 및 배포 성공!'
+        }
+        failure {
+            echo '❌ 파이프라인 빌드 실패...'
+        }
+    }
+}
