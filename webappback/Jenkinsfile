@@ -16,19 +16,23 @@ pipeline {
             }
         }
 
-        // 2. Gradle 빌드 (jar 파일 생성)
+        // 2. Gradle 빌드 (jar 파일 생성) - webappback 폴더 안으로 이동해서 실행
         stage('Build Gradle') {
             steps {
-                sh './gradlew clean bootJar'
+                dir('webappback') {
+                    sh './gradlew clean bootJar'
+                }
             }
         }
 
-        // 3. 우분투 로컬에 Docker 이미지 빌드
+        // 3. 우분투 로컬에 Docker 이미지 빌드 - 폴더 안에서 도커파일 참조
         stage('Build Docker Image') {
             steps {
                 script {
-                    // 빌드 번호를 태그로 사용하여 로컬에 이미지 생성
-                    sh "docker build -f backend.dockerfile -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ."
+                    dir('webappback') {
+                        // 빌드 번호를 태그로 사용하여 로컬에 이미지 생성
+                        sh "docker build -f backend.dockerfile -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ."
+                    }
                 }
             }
         }
